@@ -9,6 +9,13 @@ export interface CreateVandorInput {
   password: string;
 }
 
+export interface editVandorInput {
+  name: string;
+  address: string;
+  phone: string;
+  foodType: [string];
+}
+
 export interface VandorLoginInputs {
   email: string;
   password: string;
