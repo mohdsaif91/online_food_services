@@ -15,9 +15,6 @@ export const GenerateOtp = () => {
 
 //
 
-// account sid AC009ee9c433a0401019c4110b7c6e7ab9
-
-// auth token 465ff231e870c259254adf9e8829e81f
 export const onRequestOtp = async (otp: number, toPhoneNumber: string) => {
   const accountSid = "";
   const authToken = "";
@@ -28,21 +25,6 @@ export const onRequestOtp = async (otp: number, toPhoneNumber: string) => {
     from: "+12295525439",
     to: `+91${toPhoneNumber}`,
   });
-
-  //
-  //   const accountSid = "AC009ee9c433a0401019c4110b7c6e7ab9";
-  //   const authToken = "465ff231e870c259254adf9e8829e81f";
-  //   const twilio = require("twilio");
-  //   const client = twilio(accountSid, authToken);
-  //   return client.messages({
-  //   body: `your Otp is ${otp}`,
-  //   from: "+12295525439",
-  //   to: `+91${toPhoneNumber}`,
-  //   });
-
-  //   console.log(response, " <><>");
-
-  //   return response;
 };
 
 //Payment
