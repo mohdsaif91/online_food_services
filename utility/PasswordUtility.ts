@@ -21,7 +21,7 @@ export const ValidatePassword = async (
   return (await genPassword(enteredPassword, salt)) === savedPassword;
 };
 
-export const generateSignature = async (payload: vandorPayload) => {
+export const generateSignature = (payload: AuthPayload) => {
   return JWT.sign(payload, APP_SECRATE, { expiresIn: "1d" });
 };
 

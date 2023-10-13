@@ -22,18 +22,14 @@ export const VandorLogin = async (
     // console.log(existingVandor);
 
     if (validation) {
-      return generateSignature({
+      const result = generateSignature({
         _id: existingVandor.id,
         email: existingVandor.email,
         foodType: existingVandor.foodType,
         name: existingVandor.name,
-      })
-        .then((result: any) => {
-          return res.json(result);
-        })
-        .catch((err) => {
-          console.log(err);
-        });
+      });
+
+      return res.json(result);
     } else {
       return res.json({ message: "Password not valid" });
     }
@@ -103,26 +99,11 @@ export const updateCoverImage = async (
 ) => {
   const user = req.user;
   if (user) {
-    const { name, category, description, price, readyTime, foodType } = <
-      CreateFoodInput
-    >req.body;
     const vandor = await FindVandor(user._id);
     if (vandor !== null) {
       const files = req.files as [Express.Multer.File];
       const image = files.map((file: Express.Multer.File) => file.filename);
-
-      const createFood = await food.create({
-        vandorId: vandor._id,
-        name: name,
-        description: description,
-        category: category,
-        foodType: foodType,
-        images: image,
-        readyTime: readyTime,
-        price: price,
-        rating: 0,
-      });
-      vandor.foods.push(createFood);
+      vandor.coverImage.push(...image);
       const result = await vandor.save();
       return res.json(result);
     }
