@@ -17,7 +17,7 @@ import {
   onRequestOtp,
 } from "../utility";
 import { Customer, CustomerDoc } from "../modles/Customer";
-import { food } from "../modles";
+import { FoodDoc, food } from "../modles";
 import { Order } from "../modles/Order";
 
 export const CustomerSignup = async (
@@ -238,16 +238,15 @@ export const createOrder = async (
   //grab current login customer
   const customer = req.user;
   if (customer) {
-    //create order ID
     const orderId = `${Math.floor(Math.random() * 89999) + 100}`;
     const profile = <CustomerDoc>await Customer.findById(customer._id);
-    // console.log(profile, "<><>");
 
     const cart = <[OrderInputs]>req.body;
     let cartItem = Array();
     let netAmount = 0.0;
-    //calculate order amount
-    const foods = await food
+    let vandorId = "";
+
+    const foods = <any>await food
       .find()
       .where("_id")
       .in(cart.map((item) => item._id))
@@ -258,6 +257,7 @@ export const createOrder = async (
     foods.map((f: any) => {
       cart.map(({ _id, unit }) => {
         if (f._id == _id) {
+          vandorId = f.vandorId;
           netAmount += f.price * unit;
           cartItem.push({ food: f, unit });
         }
@@ -267,18 +267,25 @@ export const createOrder = async (
     if (cartItem) {
       const currentOrder = <any>await Order.create({
         orderId: orderId,
+        vendorId: vandorId,
         items: cartItem,
         totalAmount: netAmount,
         orderDate: new Date(),
         paidThrough: "COD",
         paymentResponse: "",
         orderStatus: "waiting",
+        remarks: "",
+        deliveryId: "",
+        appliedOffer: false,
+        offerId: null,
+        readyTime: 45,
       });
 
       if (currentOrder) {
+        profile.cart = [] as any;
         profile.orders.push(currentOrder);
-        await profile.save();
-        return res.status(200).json(currentOrder);
+        const profileSavedResponse = await profile.save();
+        return res.status(200).json(profileSavedResponse);
       }
     }
   }
@@ -319,19 +326,12 @@ export const getCart = async (
 ) => {
   const customer = req.user;
   if (customer) {
-    const profile = await Customer.findById(customer._id);
-    let cartItem = Array();
-    const { _id, unit } = <OrderInputs>req.body;
-    const foods = await food.findById(_id);
-    if (profile !== null && food) {
-      cartItem = profile.cart;
-      if (cartItem.length > 0) {
-      } else {
-        cartItem.push({ food, unit });
-      }
+    const profile = await Customer.findById(customer._id).populate("cart.food");
+    if (profile) {
+      return res.status(200).json(profile.cart);
     }
   }
-  return res.status(400).json({ message: "Error With getting Cart Data" });
+  return res.status(400).json({ message: "Cart is Empty" });
 };
 
 export const addCart = async (
@@ -342,32 +342,43 @@ export const addCart = async (
   const customer = req.user;
   if (customer) {
     const profile = await Customer.findById(customer._id).populate("cart.food");
+    console.log(profile, " FIRST <>");
+
     let cartItem = Array();
+
     const { _id, unit } = <OrderInputs>req.body;
+
     const foods = await food.findById(_id);
-    if (foods && profile !== null) {
-      cartItem = profile.cart;
-      if (cartItem.length > 0) {
-        let existingFoodItem = cartItem.filter(
-          (item) => item.food._id.toStinrg() === _id
-        );
-        if (existingFoodItem.length > 0) {
-          const index = cartItem.indexOf(existingFoodItem[0]);
-          if (unit > 0) {
-            cartItem[index] = { foods, unit };
+
+    if (foods) {
+      if (profile !== null) {
+        cartItem = profile.cart;
+        if (cartItem.length > 0) {
+          let existingFoodItem = cartItem.filter(
+            (item) => item.food._id.toString() === _id
+          );
+
+          if (existingFoodItem.length > 0) {
+            const index = cartItem.indexOf(existingFoodItem[0]);
+
+            if (unit > 0) {
+              cartItem[index] = { food: foods, unit };
+            } else {
+              cartItem.splice(index, 1);
+            }
           } else {
-            cartItem.splice(index, 1);
+            console.log("6");
+            cartItem.push({ food: foods, unit });
           }
         } else {
-          cartItem.push({ foods, unit });
+          console.log("7");
+          cartItem.push({ food: foods, unit });
         }
-      } else {
-        cartItem.push({ foods, unit });
-      }
-      if (cartItem) {
-        profile.cart = cartItem as any;
-        const cartResult = await profile.save();
-        res.status(200).json(cartResult.cart);
+        if (cartItem) {
+          profile.cart = cartItem as any;
+          const cartResult = await profile.save();
+          res.status(200).json(cartItem);
+        }
       }
     }
   }
@@ -377,4 +388,15 @@ export const deleteCart = async (
   req: Request,
   res: Response,
   next: NextFunction
-) => {};
+) => {
+  const customer = req.user;
+  if (customer) {
+    const profile = await Customer.findById(customer._id).populate("cart.food");
+    if (profile !== null) {
+      profile.cart = [] as any;
+      const cartResult = await profile.save();
+      return res.status(200).json(cartResult);
+    }
+  }
+  return res.status(400).json({ message: "Cart is Already Empty" });
+};

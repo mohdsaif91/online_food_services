@@ -4,6 +4,7 @@ import { FindVandor } from "./AdminController";
 import { ValidatePassword, generateSignature } from "../utility";
 import { CreateFoodInput } from "../dto/Food.dto";
 import { food } from "../modles";
+import { Order, OrderDoc } from "../modles/Order";
 
 export const VandorLogin = async (
   req: Request,
@@ -159,3 +160,78 @@ export const getFoods = async (
   }
   return res.json({ message: "Food information is not available" });
 };
+
+export const getOrders = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const user = req.user;
+  if (user) {
+    const orders = await Order.find({ vendorId: user._id }).populate(
+      "items.food"
+    );
+    if (orders !== null) {
+      return res.status(200).json(orders);
+    }
+  }
+  return res.json({ message: "Order not found" });
+};
+
+export const getOrderDetails = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const orderId = req.params.id;
+  if (orderId) {
+    const order = await Order.findById(orderId).populate("items.food");
+    if (order !== null) {
+      return res.status(200).json(order);
+    }
+  }
+  return res.json({ message: "Order not found" });
+};
+
+export const processOrder = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const orderId = req.params.id;
+  const { status, remark, time } = req.body;
+  if (orderId) {
+    const order = <OrderDoc>(
+      await Order.findById(orderId).populate("items.food")
+    );
+    console.log(order, " <><>");
+
+    order.orderStatus = status;
+    order.remarks = remark;
+    if (time) {
+      order.readyTime = time;
+    }
+    const orderResult = await order.save();
+    if (orderResult !== null) {
+      return res.status(200).json(orderResult);
+    }
+  }
+  return res.status(400).json({ message: "Unable to process order !" });
+};
+
+export const getOffers = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {};
+
+export const addOffer = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {};
+export const editOffer = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {};
