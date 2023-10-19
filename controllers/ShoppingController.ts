@@ -1,5 +1,5 @@
 import express, { Request, Response, NextFunction } from "express";
-import { FoodDoc, Vandor } from "../modles";
+import { FoodDoc, Offer, Vandor } from "../modles";
 
 export const getFoodAvailablity = async (
   req: Request,
@@ -96,4 +96,18 @@ export const resturantById = async (
     return res.status(200).json(result);
   }
   return res.status(400).json({ message: "Data not found !" });
+};
+
+export const getOfferById = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const pincode = req.params.pincode;
+
+  const offers = await Offer.find({ pincode, isActive: true });
+  if (offers) {
+    return res.status(200).json(offers);
+  }
+  return res.status(400).json({ message: "Offers not found" });
 };

@@ -54,7 +54,7 @@ router.get("/order/:id", getOrderDetails);
 
 //offers
 router.get("/offers", getOffers);
-router.post("/order", addOffer);
+router.post("/offer", addOffer);
 router.put("/offer/:id", editOffer);
 
 router.get("/", (req: Request, res: Response, next: NextFunction) => {

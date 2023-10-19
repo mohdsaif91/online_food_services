@@ -21,6 +21,9 @@ router.get("/food-in-30-min/:pincode", getFoodIn30Min);
 // search food
 router.get("/search/:pincode", searchFood);
 
+//search Offer by pincode
+router.get("/offers/:pincode");
+
 // find resturant by id
 router.get("/resturant/:id", resturantById);
 
