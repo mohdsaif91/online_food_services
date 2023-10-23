@@ -9,10 +9,12 @@ import {
   RequestOtp,
   addCart,
   createOrder,
+  createPayment,
   deleteCart,
   getCart,
   getOrderById,
   getOrders,
+  verifyOfferById,
 } from "../controllers";
 import { Authenticate } from "../middlewares";
 
@@ -43,11 +45,15 @@ router.post("/cart", addCart);
 router.get("/cart", getCart);
 router.delete("/cart", deleteCart);
 
+//apply Offers
+router.get("/offer/verify/:id", verifyOfferById);
+
 // order
 router.post("/create-order", createOrder);
 router.get("/orders", getOrders);
 router.get("/order/:id", getOrderById);
 
 // payment
+router.post("/create-payment", createPayment);
 
 export { router as CustomerRoute };

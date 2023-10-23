@@ -1,5 +1,6 @@
 import express, { Request, Response, NextFunction } from "express";
-import { FoodDoc, Offer, Vandor } from "../modles";
+import { FoodDoc, Offer, OfferDoc, Transaction, Vandor } from "../modles";
+import { Customer } from "../modles/Customer";
 
 export const getFoodAvailablity = async (
   req: Request,
@@ -98,7 +99,7 @@ export const resturantById = async (
   return res.status(400).json({ message: "Data not found !" });
 };
 
-export const getOfferById = async (
+export const getAvailabelOffersByPincode = async (
   req: Request,
   res: Response,
   next: NextFunction
@@ -106,8 +107,63 @@ export const getOfferById = async (
   const pincode = req.params.pincode;
 
   const offers = await Offer.find({ pincode, isActive: true });
+  console.log(offers, " <>");
+
   if (offers) {
     return res.status(200).json(offers);
   }
   return res.status(400).json({ message: "Offers not found" });
 };
+
+export const verifyOfferById = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const offerId = req.params.id;
+  if (offerId) {
+    const appliedOffer = await Offer.findById(offerId);
+    console.log(appliedOffer, " <>");
+
+    if (appliedOffer && appliedOffer.isActive) {
+      if (appliedOffer.promoType === "USER") {
+        //can be applied once per User
+      } else {
+        return res.json({ message: "Offer is valid ", Offer: appliedOffer });
+      }
+    }
+  }
+  return res.status(400).json({ message: "Offer is not Valid" });
+};
+
+// export const createPayment = async (
+//   req: Request,
+//   res: Response,
+//   next: NextFunction
+// ) => {
+//   const user = req.user;
+//   const { amount, paymentMode, offerId } = req.body;
+//   let payableAmount = Number(amount);
+//   if (user) {
+//     const appliedOffer = <OfferDoc>await Offer.findById(offerId);
+//     if (appliedOffer && appliedOffer.isActive) {
+//       payableAmount = payableAmount - appliedOffer.offerAmount;
+//     }
+
+//     //
+
+//     //Create recorde in Transaction
+//     const transaction = await Transaction.create({
+//       customer: user._id,
+//       vendorId: "",
+//       orderId: "",
+//       orderValue: payableAmount,
+//       offerUsed: offerId || "NA",
+//       status: "OPEN",
+//       paymentMode: paymentMode,
+//       paymentResponse: "Payment is Cash on Delivery",
+//     });
+//     return res.json(transaction);
+//   }
+//   return res.status(400).json({ message: "Offer is not Valid" });
+// };

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { CreateVandorInput } from "../dto/vandor.dto";
-import { Vandor } from "../modles";
+import { DeliveryUser, Transaction, Vandor } from "../modles";
 import { genSalt } from "bcrypt";
 import { genPassword } from "../utility";
 
@@ -54,6 +54,8 @@ export const CreateVandor = async (
     serviceAvailable: false,
     coverImage: [],
     foods: [],
+    lat: 0,
+    lng: 0,
   });
   return res.json(createdVandor);
 };
@@ -84,4 +86,62 @@ export const GetVandorById = async (
     return res.json(vandor);
   }
   return res.json({ message: "Vandor Data not availabel" });
+};
+
+export const getTransactions = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const transaction = await Transaction.find();
+
+  if (transaction) {
+    return res.status(200).json(transaction);
+  }
+  return res.json({ message: "Transaction data not availabel" });
+};
+
+export const getTransactionsById = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const id = req.params.id;
+  const transaction = await Transaction.findById(id);
+
+  if (transaction) {
+    return res.status(200).json(transaction);
+  }
+  return res.json({ message: "Transaction data not availabel" });
+};
+
+export const deliveryUserVerify = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const { _id, status } = req.body;
+  if (_id) {
+    const profile = await DeliveryUser.findById(_id);
+    if (profile) {
+      profile.verified = status;
+      const result = await profile.save();
+      return res.status(200).json(result);
+    }
+  }
+  return res.json({ message: "Unable to verify Delivery user" });
+};
+
+export const getDeliveryUser = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const deliveryuser = await DeliveryUser.find();
+  console.log(deliveryuser, " <>");
+
+  if (deliveryuser) {
+    return res.status(200).json(deliveryuser);
+  }
+  return res.status(400).json({ message: "unable to get delivery user" });
 };

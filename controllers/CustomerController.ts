@@ -6,7 +6,8 @@ import {
   CreateCustomerInput,
   UserLoginInputs,
   EditCustomerProfileInput,
-  OrderInputs,
+  orderInputs,
+  cartItem,
 } from "../dto/CustomerDetails.dto";
 import { genSalt } from "bcrypt";
 import {
@@ -17,7 +18,16 @@ import {
   onRequestOtp,
 } from "../utility";
 import { Customer, CustomerDoc } from "../modles/Customer";
-import { FoodDoc, food } from "../modles";
+import {
+  DeliveryUser,
+  FoodDoc,
+  Offer,
+  OfferDoc,
+  Transaction,
+  TransactionDoc,
+  Vandor,
+  food,
+} from "../modles";
 import { Order } from "../modles/Order";
 
 export const CustomerSignup = async (
@@ -37,14 +47,10 @@ export const CustomerSignup = async (
 
   const salt = await genSalt();
   const userPassword = await genPassword(password, salt);
-  console.log(userPassword, " <><><>");
 
   const { otp, expiry } = GenerateOtp();
-  console.log("<><><> 1");
 
   const existingUser = await Customer.findOne({ email: email });
-
-  console.log(existingUser, "<>");
 
   if (existingUser !== null) {
     return res
@@ -229,6 +235,88 @@ export const EditCustomerProfile = async (
   }
   return res.status(400).json({ message: "Error with OTP generation" });
 };
+//payment---------------------
+
+export const createPayment = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const user = req.user;
+  const { amount, paymentMode, offerId } = req.body;
+  let payableAmount = Number(amount);
+  if (user) {
+    const appliedOffer = <OfferDoc>await Offer.findById(offerId);
+    if (appliedOffer && appliedOffer.isActive) {
+      payableAmount = payableAmount - appliedOffer.offerAmount;
+    }
+
+    //
+
+    //Create recorde in Transaction
+    const transaction = await Transaction.create({
+      customer: user._id,
+      vendorId: "",
+      orderId: "",
+      orderValue: payableAmount,
+      offerUsed: offerId || "NA",
+      status: "OPEN",
+      paymentMode: paymentMode,
+      paymentResponse: "Payment is Cash on Delivery",
+    });
+    return res.json(transaction);
+  }
+  return res.status(400).json({ message: "Offer is not Valid" });
+};
+
+// Delivery Notification
+
+const assigneOrderForDelivery = async (orderId: string, vendorId: string) => {
+  // find the vendor
+  const vendor = await Vandor.findById(vendorId);
+  if (vendor) {
+    const areaCode = vendor.pincode;
+    const vendorLat = vendor.lat;
+    const vendorLng = vendor.lng;
+    // find the available Delivery person
+
+    const deliveryPerson = await DeliveryUser.find({
+      pincode: areaCode,
+      verified: true,
+      isAvailable: true,
+    });
+    console.log(areaCode, " <> ", deliveryPerson);
+    if (deliveryPerson && deliveryPerson.length > 0) {
+      const currentOrder = await Order.findById(orderId);
+      if (currentOrder) {
+        console.log(currentOrder, " <> - ", deliveryPerson);
+
+        currentOrder.deliveryId = deliveryPerson[0]._id;
+        return await currentOrder.save();
+      }
+    }
+    //check the nearest delivery person and assigne the order
+    // update deliveryId
+  }
+};
+
+//------------------------------
+
+const validateTransaction = async (txnId: string) => {
+  const currentTransaction = <TransactionDoc>await Transaction.findById(txnId);
+  console.log(currentTransaction, "<>");
+
+  if (currentTransaction.status.toLocaleLowerCase() !== "failed") {
+    return {
+      status: true,
+      currentTransaction,
+    };
+  }
+  return {
+    status: false,
+    currentTransaction,
+  };
+};
 
 export const createOrder = async (
   req: Request,
@@ -237,11 +325,17 @@ export const createOrder = async (
 ) => {
   //grab current login customer
   const customer = req.user;
+  const { txnId, amount, items } = <orderInputs>req.body;
   if (customer) {
+    const { status, currentTransaction } = await validateTransaction(txnId);
+
+    if (!status) {
+      return res.status(400).json({ message: "Error with Create Order" });
+    }
     const orderId = `${Math.floor(Math.random() * 89999) + 100}`;
     const profile = <CustomerDoc>await Customer.findById(customer._id);
 
-    const cart = <[OrderInputs]>req.body;
+    // const cart = <[OrderInputs]>req.body;
     let cartItem = Array();
     let netAmount = 0.0;
     let vandorId = "";
@@ -249,13 +343,13 @@ export const createOrder = async (
     const foods = <any>await food
       .find()
       .where("_id")
-      .in(cart.map((item) => item._id))
+      .in(items.map((item) => item._id))
       .exec();
 
     // console.log(foods, " <> ");
 
     foods.map((f: any) => {
-      cart.map(({ _id, unit }) => {
+      items.map(({ _id, unit }) => {
         if (f._id == _id) {
           vandorId = f.vandorId;
           netAmount += f.price * unit;
@@ -270,22 +364,30 @@ export const createOrder = async (
         vendorId: vandorId,
         items: cartItem,
         totalAmount: netAmount,
+        paidAmount: amount,
         orderDate: new Date(),
-        paidThrough: "COD",
-        paymentResponse: "",
         orderStatus: "waiting",
         remarks: "",
         deliveryId: "",
-        appliedOffer: false,
-        offerId: null,
         readyTime: 45,
       });
 
       if (currentOrder) {
         profile.cart = [] as any;
         profile.orders.push(currentOrder);
+
+        currentTransaction.vendorId = vandorId;
+        currentTransaction.orderId = orderId;
+        currentTransaction.status = "CONFIRMED";
+        await currentTransaction.save();
+
+        const currentOrederResponse = assigneOrderForDelivery(
+          currentOrder._id,
+          vandorId
+        );
+
         const profileSavedResponse = await profile.save();
-        return res.status(200).json(profileSavedResponse);
+        return res.status(200).json(currentOrederResponse);
       }
     }
   }
@@ -346,7 +448,7 @@ export const addCart = async (
 
     let cartItem = Array();
 
-    const { _id, unit } = <OrderInputs>req.body;
+    const { _id, unit } = <cartItem>req.body;
 
     const foods = await food.findById(_id);
 
